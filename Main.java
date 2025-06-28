@@ -20,40 +20,56 @@ public class Main {
             new Salon("Lab Físico", 25, true)
         );
 
-        List<HorarioAsignado> horarioFinal = new ArrayList<>();
-        Random rand = new Random();
+        // Algoritmo Genético Simple
+        List<HorarioIndividuo> poblacion = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            poblacion.add(crearHorarioAleatorio(cursos, docentes, salones));
+        }
 
+        for (int generacion = 0; generacion < 50; generacion++) {
+            poblacion.sort(Comparator.comparingInt(h -> -h.fitness));
+            List<HorarioIndividuo> nuevaGen = new ArrayList<>();
+            nuevaGen.add(poblacion.get(0)); // elitismo
+            for (int i = 1; i < 10; i++) {
+                HorarioIndividuo hijo = cruzar(poblacion.get(0), poblacion.get(i));
+                nuevaGen.add(hijo);
+            }
+            poblacion = nuevaGen;
+        }
+
+        HorarioIndividuo mejor = poblacion.stream().max(Comparator.comparingInt(h -> h.fitness)).get();
+        for (HorarioAsignado h : mejor.asignaciones) {
+            System.out.println(h);
+        }
+    }
+
+    static HorarioIndividuo crearHorarioAleatorio(List<Curso> cursos, List<Docente> docentes, List<Salon> salones) {
+        Random rand = new Random();
+        List<HorarioAsignado> asignaciones = new ArrayList<>();
         for (Curso curso : cursos) {
             int horasAsignadas = 0;
-            Set<String> usados = new HashSet<>();
             while (horasAsignadas < curso.horasSemana) {
                 String dia = dias[rand.nextInt(dias.length)];
                 int hora = horas[rand.nextInt(horas.length)];
-                String clave = dia + ":" + hora + ":" + curso.nombre;
-                if (usados.contains(clave)) continue;
-                usados.add(clave);
-
-                Docente docente = docentes.stream()
-                    .filter(d -> d.puedeEnsenar(curso.nombre) && d.horasDisponibles > 0)
-                    .findFirst().orElse(null);
-
+                Docente docente = docentes.get(rand.nextInt(docentes.size()));
+                if (!docente.puedeEnsenar(curso.nombre)) continue;
                 Salon salon = salones.stream()
                     .filter(s -> (!curso.tipo.equals("laboratorio") || s.esLaboratorio))
                     .findFirst().orElse(null);
-
-                if (docente != null && salon != null) {
-                    horarioFinal.add(new HorarioAsignado(curso, docente, salon, dia, hora));
-                    docente.horasDisponibles--;
-                    horasAsignadas++;
-                } else {
-                    System.out.println("No se pudo asignar: " + curso.nombre);
-                    break;
-                }
+                if (salon == null) continue;
+                asignaciones.add(new HorarioAsignado(curso, docente, salon, dia, hora));
+                horasAsignadas++;
             }
         }
+        return new HorarioIndividuo(asignaciones);
+    }
 
-        for (HorarioAsignado h : horarioFinal) {
-            System.out.println(h);
+    static HorarioIndividuo cruzar(HorarioIndividuo p1, HorarioIndividuo p2) {
+        Random rand = new Random();
+        List<HorarioAsignado> nuevo = new ArrayList<>();
+        for (int i = 0; i < p1.asignaciones.size(); i++) {
+            nuevo.add(rand.nextBoolean() ? p1.asignaciones.get(i) : p2.asignaciones.get(i));
         }
+        return new HorarioIndividuo(nuevo);
     }
 }
